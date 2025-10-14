@@ -17,7 +17,9 @@ const NoiseShader = {
 
 		'tDiffuse': { value: null },
 		'opacity': { value: 1.0 },
-        'time': { value: 0.0 }
+        'time': { value: 0.0 },
+        effect: { value: 0.0 },
+        aspectRatio: { value: 1 }
 	},
 
 	vertexShader: /* glsl */`
@@ -37,6 +39,8 @@ const NoiseShader = {
 
 		uniform sampler2D tDiffuse;
         uniform float time;
+        uniform float effect;
+        uniform float aspectRatio;
 
 		varying vec2 vUv;
 
@@ -88,15 +92,15 @@ const NoiseShader = {
             float dSize = 0.1;
             float dAmount = 12.0;
 
-            vec2 distortion = vec2(
+            vec2 distortion = effect * vec2(
                 mix(
                     -1.0 * dSize, 
                     dSize, 
                     fbm(vec3(vUv.x, vUv.y, 0.0 + time * 0.01) * dAmount)
                 ), 
                 mix(
-                    -1.0 * dSize, 
-                    dSize, 
+                    -1.0 * dSize * aspectRatio, 
+                    dSize * aspectRatio, 
                     fbm(vec3(vUv.x, vUv.y, 1.0 + time * 0.01) * dAmount)
                 )
             );

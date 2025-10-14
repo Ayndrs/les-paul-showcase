@@ -1,5 +1,5 @@
 import "./style.css"
-import { animate, inView } from "motion"
+import { animate, inView, time } from "motion"
 import { 
   Scene, 
   PerspectiveCamera, 
@@ -18,26 +18,14 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { NoiseShader } from './noise-shader.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const guitarTag = document.querySelector("section.guitar");
+const loaderTag = document.querySelector("div.loader");
 
-animate (
-  "header", 
-  {
-    y: [-100, 0],
-    opacity: [0, 1]
-  }, 
-  { duration: 1, delay: 2.5},
-)
-
-animate (
-  "section.new-drop",
-  {
-    y: [-100, 0],
-    opacity: [0, 1],
-  },
-  { duration: 1, delay: 2 },
-)
+let currentEffect = 0;
+let aimEffect = 0;
+let timeoutEffect;
 
 animate("section.content p, section.content img", { opacity: 0 })
 inView ("section.content", (element, info) => {
@@ -71,23 +59,52 @@ camera.add(backLight);
 
 scene.add(camera);
 
-const geometry = new BoxGeometry(1, 1, 1);
-const material = new MeshBasicMaterial({ color: 0x00ff00 });
-const shape = new Mesh(geometry, material);
+const gltfLoader = new GLTFLoader();
 
 const loadGroup = new Group();
 loadGroup.position.y = -10;
-loadGroup.add(shape);
 
 const scrollGroup = new Group();
 scrollGroup.add(loadGroup);
 
 scene.add(scrollGroup);
 
-animate(
-  loadGroup.position, 
-  { y: 0 }, { duration: 2, delay: 1 }
-);
+animate("header", { y: -100,  opacity: 0 })
+animate("section.new-drop", { y: -100,  opacity: 0 })
+
+gltfLoader.load("./lespaul/scene.gltf", (gltf) => {
+  loadGroup.add(gltf.scene);
+
+  animate (
+    "header", 
+    {
+      y: [-100, 0],
+      opacity: [0, 1]
+    }, 
+    { duration: 1, delay: 2.5},
+  )
+
+  animate (
+    "section.new-drop",
+    {
+      y: [-100, 0],
+      opacity: [0, 1],
+    },
+    { duration: 1, delay: 2 },
+  )
+
+  animate(
+    loadGroup.position, 
+    { y: 0 }, { duration: 2, delay: 1 }
+  );
+
+  animate("div.loader", {
+    y: "-100%",
+  }, { duration: 1, delay: 1 })
+}, (xhr) => {
+  const p = Math.round((xhr.loaded / xhr.total * 100));
+  loaderTag.querySelector("span").innerText = p + "%";
+}, (error) => {console.error(error)});
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableZoom = false;
@@ -96,7 +113,7 @@ controls.autoRotate = true;
 controls.autoRotateSpeed = 2;
 controls.update();
 
-camera.position.z = 5;
+camera.position.z = 2;
 
 const composer = new EffectComposer(renderer);
 
@@ -105,6 +122,8 @@ composer.addPass(renderPass);
 
 const noisePass = new ShaderPass(NoiseShader);
 noisePass.uniforms.time.value = clock.getElapsedTime();
+noisePass.uniforms.effect.value = currentEffect;
+noisePass.uniforms.aspectRatio.value = window.innerWidth / window.innerHeight;
 composer.addPass(noisePass);
 
 const outputPass = new OutputPass();
@@ -115,7 +134,10 @@ const render = () => {
 
   scrollGroup.rotation.set(0, window.scrollY * 0.001, 0);
 
+  currentEffect += (aimEffect - currentEffect) * 0.05;
+
   noisePass.uniforms.time.value = clock.getElapsedTime();
+  noisePass.uniforms.effect.value = currentEffect;
 
   requestAnimationFrame(render);
   composer.render();
@@ -124,8 +146,19 @@ const render = () => {
 const resize = () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
+  noisePass.uniforms.aspectRatio.value = window.innerWidth / window.innerHeight;
   renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+const scroll = () => {
+  clearTimeout(timeoutEffect);
+  aimEffect = 1;
+
+  timeoutEffect = setTimeout(() => {
+    aimEffect = 0;
+  }, 300)
 }
 
 render(); 
 window.addEventListener('resize', resize);
+windows.addEventListener('scroll', scroll);
