@@ -9,9 +9,15 @@ import {
   Mesh, 
   AmbientLight,
   DirectionalLight,
-  Group
+  Group,
+  Clock
 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { NoiseShader } from './noise-shader.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 const guitarTag = document.querySelector("section.guitar");
 
@@ -37,6 +43,8 @@ animate("section.content p, section.content img", { opacity: 0 })
 inView ("section.content", (element, info) => {
   animate (info.target.querySelectorAll("p, img"), { opacity: 1,}, { duration: 1, delay: 1 })
 })
+
+const clock = new Clock();
 
 const scene =  new Scene();
 const camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -90,13 +98,27 @@ controls.update();
 
 camera.position.z = 5;
 
+const composer = new EffectComposer(renderer);
+
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+
+const noisePass = new ShaderPass(NoiseShader);
+noisePass.uniforms.time.value = clock.getElapsedTime();
+composer.addPass(noisePass);
+
+const outputPass = new OutputPass();
+composer.addPass(outputPass);
+
 const render = () => {
   controls.update();
 
   scrollGroup.rotation.set(0, window.scrollY * 0.001, 0);
 
+  noisePass.uniforms.time.value = clock.getElapsedTime();
+
   requestAnimationFrame(render);
-  renderer.render(scene, camera);
+  composer.render();
 }
 
 const resize = () => {
